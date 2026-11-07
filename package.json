@@ -1,0 +1,23 @@
+{
+  "name": "discord-quest-mcp",
+  "version": "1.0.0",
+  "description": "MCP server to automate Discord desktop quests directly via CDP (Chrome DevTools Protocol)",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "discord-quest-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}
