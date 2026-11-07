@@ -5,7 +5,13 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { executeInDiscord } from "./cdp.js";
-import { LIST_QUESTS_SCRIPT, generateSpoofScript, AUTO_COMPLETE_ALL_SCRIPT, FAST_FORWARD_VIDEOS_SCRIPT } from "./scripts.js";
+import {
+  LIST_QUESTS_SCRIPT,
+  generateSpoofScript,
+  AUTO_COMPLETE_ALL_SCRIPT,
+  FAST_FORWARD_VIDEOS_SCRIPT,
+  AUTO_ENROLL_ALL_SCRIPT,
+} from "./scripts.js";
 
 const server = new Server(
   {
@@ -79,6 +85,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: "auto_enroll_all_quests",
+        description: "Automatically enroll into ALL unaccepted active quests at once without clicking them one by one.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            port: {
+              type: "number",
+              description: "Discord remote debugging port (default: 9222)",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -133,6 +152,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "fast_forward_video_quests") {
       const result = await executeInDiscord(FAST_FORWARD_VIDEOS_SCRIPT, port);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (name === "auto_enroll_all_quests") {
+      const result = await executeInDiscord(AUTO_ENROLL_ALL_SCRIPT, port);
       return {
         content: [
           {

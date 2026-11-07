@@ -270,3 +270,54 @@ export const FAST_FORWARD_VIDEOS_SCRIPT = `
     };
 })();
 `;
+
+export const AUTO_ENROLL_ALL_SCRIPT = `
+(async () => {
+    delete window.$;
+    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
+    webpackChunkdiscord_app.pop();
+
+    let questsStore = null;
+    let api = null;
+
+    for (const i in wpRequire.c) {
+        const m = wpRequire.c[i]?.exports;
+        if (!m) continue;
+        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === "object");
+        for (const t of targets) {
+            try {
+                if (t.getName && t.getName() === "QuestStore") questsStore = t;
+                if (t.get && t.post && !api) api = t;
+            } catch(e) {}
+        }
+    }
+
+    if (!questsStore || !api) return { error: "QuestStore or API not found" };
+
+    const rawList = Array.from(questsStore.quests.values());
+    const unenrolledQuests = rawList.filter(q => {
+        const isExpired = q.config?.expiresAt && new Date(q.config.expiresAt).getTime() <= Date.now();
+        return !isExpired && !q.userStatus?.enrolledAt && !q.userStatus?.completedAt;
+    });
+
+    if (unenrolledQuests.length === 0) {
+        return { message: "Semua quest aktif sudah ter-enroll (tidak ada quest baru yang terlewat)." };
+    }
+
+    const results = [];
+    for (const q of unenrolledQuests) {
+        const name = q.config?.messages?.questName || q.config?.application?.name || "Quest";
+        try {
+            await api.post({ url: \`/quests/\${q.id}/enroll\`, body: { location: 11 } });
+            results.push({ id: q.id, name, status: "ENROLLED_SUCCESSFULLY" });
+        } catch(err) {
+            results.push({ id: q.id, name, status: "FAILED", error: String(err) });
+        }
+    }
+
+    return {
+        totalEnrolled: results.filter(r => r.status === "ENROLLED_SUCCESSFULLY").length,
+        results
+    };
+})();
+`;
