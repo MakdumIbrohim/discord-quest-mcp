@@ -59,7 +59,8 @@ discord --remote-debugging-port=9222
 ## Installation and Build
 
 ```bash
-cd /home/makdumibrohim/Projects/Coba-Coba/discord-quest-mcp
+git clone <repository-url>
+cd discord-quest-mcp
 npm install
 npm run build
 ```
@@ -76,7 +77,7 @@ Register the server in your MCP client configuration (such as Hermes or Claude D
     "discord-quest": {
       "command": "node",
       "args": [
-        "/home/makdumibrohim/Projects/Coba-Coba/discord-quest-mcp/build/index.js"
+        "/path/to/discord-quest-mcp/build/index.js"
       ]
     }
   }
