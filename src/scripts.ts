@@ -11,7 +11,7 @@ export const LIST_QUESTS_SCRIPT = `
         const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
         for (const t of targets) {
             try {
-                if (t.quests && t.quests instanceof Map && t.quests.size > 0) {
+                if (t.getName && t.getName() === "QuestStore") {
                     questsStore = t;
                     break;
                 }
@@ -20,19 +20,18 @@ export const LIST_QUESTS_SCRIPT = `
         if (questsStore) break;
     }
 
-    if (!questsStore) return { error: "QuestsStore not found" };
+    if (!questsStore) return { error: "QuestStore not found" };
 
     const rawList = Array.from(questsStore.quests.values());
     return rawList.map(q => {
         const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
         const taskName = ["WATCH_VIDEO", "PLAY_ON_DESKTOP", "STREAM_ON_DESKTOP", "PLAY_ACTIVITY"].find(x => tc?.tasks?.[x] != null) || "UNKNOWN";
         const target = tc?.tasks?.[taskName]?.target ?? 0;
-        const progress = q.userStatus?.progress?.[taskName]?.value ?? 0;
+        const progress = q.userStatus?.progress?.[taskName]?.value ?? q.userStatus?.streamProgressSeconds ?? 0;
 
         return {
             id: q.id,
             name: q.config?.messages?.questName || q.config?.application?.name || "Unknown",
-            applicationId: q.config?.application?.id,
             enrolledAt: q.userStatus?.enrolledAt,
             completedAt: q.userStatus?.completedAt,
             taskName,
@@ -51,47 +50,35 @@ export function generateSpoofScript(questId: string): string {
     let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
     webpackChunkdiscord_app.pop();
 
-    const findModule = (filter) => {
-        for (const i in wpRequire.c) {
-            const m = wpRequire.c[i]?.exports;
-            if (!m) continue;
-            const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
-            for (const t of targets) {
-                try { if (filter(t)) return t; } catch(e) {}
-            }
-        }
-    };
-
-    const runningGameStore = findModule(m => m.getRunningGames);
-    const fluxDispatcher = findModule(m => m.flushWaitQueue);
-
+    let rgs = null;
     let questsStore = null;
+
     for (const i in wpRequire.c) {
         const m = wpRequire.c[i]?.exports;
         if (!m) continue;
         const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
         for (const t of targets) {
             try {
-                if (t.quests && t.quests instanceof Map && t.quests.size > 0) {
-                    questsStore = t;
-                    break;
+                if (t.getName) {
+                    const name = t.getName();
+                    if (name === "RunningGameStore") rgs = t;
+                    if (name === "QuestStore") questsStore = t;
                 }
             } catch(e) {}
         }
-        if (questsStore) break;
+        if (rgs && questsStore) break;
     }
 
-    if (!questsStore) return { success: false, error: "QuestsStore not found" };
+    if (!rgs || !questsStore) return { success: false, error: "Stores not found" };
 
     const quest = questsStore.quests.get("${questId}");
-    if (!quest) return { success: false, error: "Quest with ID ${questId} not found" };
+    if (!quest) return { success: false, error: "Quest not found" };
 
-    const appId = quest.config?.application?.id || quest.config?.applicationId;
-    const appName = quest.config?.application?.name || quest.config?.messages?.questName || "Application";
-    const taskConfig = quest.config?.taskConfig ?? quest.config?.taskConfigV2;
-    const tasks = taskConfig?.tasks || {};
-    const secondsNeeded = tasks?.PLAY_ON_DESKTOP?.target ?? 900;
-    const secondsDone = quest.userStatus?.progress?.PLAY_ON_DESKTOP?.value ?? 0;
+    const tc = quest.config?.taskConfig ?? quest.config?.taskConfigV2;
+    const appId = tc?.tasks?.PLAY_ON_DESKTOP?.applications?.[0]?.id || quest.config?.application?.id || quest.config?.applicationId;
+    const appName = quest.config?.messages?.questName || quest.config?.application?.name || "Game";
+    const targetSeconds = tc?.tasks?.PLAY_ON_DESKTOP?.target ?? 900;
+    const progressSeconds = quest.userStatus?.progress?.PLAY_ON_DESKTOP?.value ?? quest.userStatus?.streamProgressSeconds ?? 0;
 
     const fakeGame = {
         cmdLine: "C:\\\\Program Files\\\\" + appName + "\\\\game.exe",
@@ -104,37 +91,25 @@ export function generateSpoofScript(questId: string): string {
         pid: 1337,
         pidPath: [1337],
         processName: "game.exe",
-        start: Date.now(),
+        start: Date.now()
     };
 
-    const realGames = runningGameStore.getRunningGames();
-    const fakeGames = [fakeGame];
-    const realGetRunningGames = runningGameStore.getRunningGames;
-    const realGetGameForPID = runningGameStore.getGameForPID;
+    rgs.getRunningGames = () => [fakeGame];
+    rgs.getGameForPID = () => fakeGame;
 
-    runningGameStore.getRunningGames = () => fakeGames;
-    runningGameStore.getGameForPID = (p) => fakeGames.find(x => x.pid === p);
-    fluxDispatcher.dispatch({type: "RUNNING_GAMES_CHANGE", removed: realGames, added: [fakeGame], games: fakeGames});
-
-    let fn = data => {
-        let progress = quest.config?.configVersion === 1 ? data.userStatus?.streamProgressSeconds : Math.floor(data.userStatus?.progress?.PLAY_ON_DESKTOP?.value || 0);
-        if (progress >= secondsNeeded) {
-            runningGameStore.getRunningGames = realGetRunningGames;
-            runningGameStore.getGameForPID = realGetGameForPID;
-            fluxDispatcher.dispatch({type: "RUNNING_GAMES_CHANGE", removed: [fakeGame], added: [], games: []});
-            fluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
-        }
-    };
-
-    fluxDispatcher.subscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+    rgs._dispatcher.dispatch({
+        type: "RUNNING_GAMES_CHANGE",
+        removed: [],
+        added: [fakeGame],
+        games: [fakeGame]
+    });
 
     return {
         success: true,
         questId: "${questId}",
         appName,
-        targetSeconds: secondsNeeded,
-        progressSeconds: secondsDone,
-        remainingMinutes: Math.ceil((secondsNeeded - secondsDone) / 60)
+        targetSeconds,
+        progressSeconds
     };
 })();
 `;
@@ -146,38 +121,28 @@ export const AUTO_COMPLETE_ALL_SCRIPT = `
     let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
     webpackChunkdiscord_app.pop();
 
-    const findModule = (filter) => {
-        for (const i in wpRequire.c) {
-            const m = wpRequire.c[i]?.exports;
-            if (!m) continue;
-            const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
-            for (const t of targets) {
-                try { if (filter(t)) return t; } catch(e) {}
-            }
-        }
-    };
-
-    const runningGameStore = findModule(m => m.getRunningGames);
-    const fluxDispatcher = findModule(m => m.flushWaitQueue);
-
+    let rgs = null;
     let questsStore = null;
+
     for (const i in wpRequire.c) {
         const m = wpRequire.c[i]?.exports;
         if (!m) continue;
         const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
         for (const t of targets) {
             try {
-                if (t.quests && t.quests instanceof Map && t.quests.size > 0) {
-                    questsStore = t;
-                    break;
+                if (t.getName) {
+                    const name = t.getName();
+                    if (name === "RunningGameStore") rgs = t;
+                    if (name === "QuestStore") questsStore = t;
                 }
             } catch(e) {}
         }
-        if (questsStore) break;
+        if (rgs && questsStore) break;
     }
 
-    if (!questsStore) return { error: "QuestsStore not found" };
+    if (!rgs || !questsStore) return { error: "Required Discord Stores not found" };
 
+    const dispatcher = rgs._dispatcher;
     const rawList = Array.from(questsStore.quests.values());
     const enrolledDesktopQuests = rawList.filter(q => {
         const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
@@ -185,12 +150,14 @@ export const AUTO_COMPLETE_ALL_SCRIPT = `
     });
 
     if (enrolledDesktopQuests.length === 0) {
-        return { message: "Tidak ada quest bertipe PLAY_ON_DESKTOP yang sedang aktif/enrolled." };
+        return { message: "Tidak ada desktop quest aktif yang belum selesai." };
     }
 
     const fakeGames = enrolledDesktopQuests.map((q, idx) => {
-        const appId = q.config?.application?.id || q.config?.applicationId;
-        const appName = q.config?.application?.name || q.config?.messages?.questName || "Game";
+        const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
+        const appId = tc.tasks.PLAY_ON_DESKTOP.applications?.[0]?.id || q.config?.application?.id || q.config?.applicationId;
+        const appName = q.config?.messages?.questName || q.config?.application?.name || "Game";
+
         return {
             cmdLine: "C:\\\\Program Files\\\\" + appName + "\\\\game.exe",
             exeName: "game.exe",
@@ -202,14 +169,19 @@ export const AUTO_COMPLETE_ALL_SCRIPT = `
             pid: 1400 + idx,
             pidPath: [1400 + idx],
             processName: "game.exe",
-            start: Date.now(),
+            start: Date.now()
         };
     });
 
-    const realGames = runningGameStore.getRunningGames();
-    runningGameStore.getRunningGames = () => fakeGames;
-    runningGameStore.getGameForPID = (p) => fakeGames.find(x => x.pid === p);
-    fluxDispatcher.dispatch({type: "RUNNING_GAMES_CHANGE", removed: realGames, added: fakeGames, games: fakeGames});
+    rgs.getRunningGames = () => fakeGames;
+    rgs.getGameForPID = (p) => fakeGames.find(x => x.pid === p);
+
+    dispatcher.dispatch({
+        type: "RUNNING_GAMES_CHANGE",
+        removed: [],
+        added: fakeGames,
+        games: fakeGames
+    });
 
     return {
         status: "RUNNING_IN_BACKGROUND",
