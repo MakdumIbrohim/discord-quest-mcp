@@ -1,25 +1,8 @@
+import { WEBPACK_DISCORD_BOOTSTRAP } from "./bootstrap.js";
+
 export const LIST_QUESTS_SCRIPT = `
 (() => {
-    delete window.$;
-    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
-    webpackChunkdiscord_app.pop();
-
-    let questsStore = null;
-    for (const i in wpRequire.c) {
-        const m = wpRequire.c[i]?.exports;
-        if (!m) continue;
-        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
-        for (const t of targets) {
-            try {
-                if (t.getName && t.getName() === "QuestStore") {
-                    questsStore = t;
-                    break;
-                }
-            } catch(e) {}
-        }
-        if (questsStore) break;
-    }
-
+    ${WEBPACK_DISCORD_BOOTSTRAP}
     if (!questsStore) return { error: "QuestStore not found" };
 
     const rawList = Array.from(questsStore.quests.values());
@@ -46,29 +29,7 @@ export const LIST_QUESTS_SCRIPT = `
 export function generateSpoofScript(questId: string): string {
   return `
 (() => {
-    delete window.$;
-    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
-    webpackChunkdiscord_app.pop();
-
-    let rgs = null;
-    let questsStore = null;
-
-    for (const i in wpRequire.c) {
-        const m = wpRequire.c[i]?.exports;
-        if (!m) continue;
-        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
-        for (const t of targets) {
-            try {
-                if (t.getName) {
-                    const name = t.getName();
-                    if (name === "RunningGameStore") rgs = t;
-                    if (name === "QuestStore") questsStore = t;
-                }
-            } catch(e) {}
-        }
-        if (rgs && questsStore) break;
-    }
-
+    ${WEBPACK_DISCORD_BOOTSTRAP}
     if (!rgs || !questsStore) return { success: false, error: "Stores not found" };
 
     const quest = questsStore.quests.get("${questId}");
@@ -117,29 +78,7 @@ export function generateSpoofScript(questId: string): string {
 
 export const AUTO_COMPLETE_ALL_SCRIPT = `
 (() => {
-    delete window.$;
-    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
-    webpackChunkdiscord_app.pop();
-
-    let rgs = null;
-    let questsStore = null;
-
-    for (const i in wpRequire.c) {
-        const m = wpRequire.c[i]?.exports;
-        if (!m) continue;
-        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
-        for (const t of targets) {
-            try {
-                if (t.getName) {
-                    const name = t.getName();
-                    if (name === "RunningGameStore") rgs = t;
-                    if (name === "QuestStore") questsStore = t;
-                }
-            } catch(e) {}
-        }
-        if (rgs && questsStore) break;
-    }
-
+    ${WEBPACK_DISCORD_BOOTSTRAP}
     if (!rgs || !questsStore) return { error: "Required Discord Stores not found" };
 
     const dispatcher = rgs._dispatcher;
@@ -197,33 +136,7 @@ export const AUTO_COMPLETE_ALL_SCRIPT = `
 
 export const FAST_FORWARD_VIDEOS_SCRIPT = `
 (async () => {
-    delete window.$;
-    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
-    webpackChunkdiscord_app.pop();
-
-    let questsStore = null;
-    let api = null;
-    let claimFn = null;
-
-    for (const i in wpRequire.c) {
-        const m = wpRequire.c[i]?.exports;
-        if (!m) continue;
-        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === "object");
-        for (const t of targets) {
-            try {
-                if (t.getName && t.getName() === "QuestStore") questsStore = t;
-                if (t.get && t.post && !api) api = t;
-            } catch(e) {}
-        }
-        for (const k in m) {
-            try {
-                if (typeof m[k] === "function" && m[k].toString().includes("QUESTS_CLAIM_REWARD_BEGIN")) {
-                    claimFn = m[k];
-                }
-            } catch(e) {}
-        }
-    }
-
+    ${WEBPACK_DISCORD_BOOTSTRAP}
     if (!questsStore || !api) return { error: "QuestStore or API not found" };
 
     const rawList = Array.from(questsStore.quests.values());
@@ -273,25 +186,7 @@ export const FAST_FORWARD_VIDEOS_SCRIPT = `
 
 export const AUTO_ENROLL_ALL_SCRIPT = `
 (async () => {
-    delete window.$;
-    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
-    webpackChunkdiscord_app.pop();
-
-    let questsStore = null;
-    let api = null;
-
-    for (const i in wpRequire.c) {
-        const m = wpRequire.c[i]?.exports;
-        if (!m) continue;
-        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === "object");
-        for (const t of targets) {
-            try {
-                if (t.getName && t.getName() === "QuestStore") questsStore = t;
-                if (t.get && t.post && !api) api = t;
-            } catch(e) {}
-        }
-    }
-
+    ${WEBPACK_DISCORD_BOOTSTRAP}
     if (!questsStore || !api) return { error: "QuestStore or API not found" };
 
     const rawList = Array.from(questsStore.quests.values());
@@ -301,7 +196,7 @@ export const AUTO_ENROLL_ALL_SCRIPT = `
     });
 
     if (unenrolledQuests.length === 0) {
-        return { message: "Semua quest aktif sudah ter-enroll (tidak ada quest baru yang terlewat)." };
+        return { message: "Semua quest aktif sudah ter-enroll." };
     }
 
     const results = [];
