@@ -5,12 +5,12 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { executeInDiscord } from "./cdp.js";
-import { LIST_QUESTS_SCRIPT, generateSpoofScript } from "./scripts.js";
+import { LIST_QUESTS_SCRIPT, generateSpoofScript, AUTO_COMPLETE_ALL_SCRIPT } from "./scripts.js";
 
 const server = new Server(
   {
     name: "discord-quest-mcp",
-    version: "1.0.0",
+    version: "1.1.0",
   },
   {
     capabilities: {
@@ -53,6 +53,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["questId"],
         },
       },
+      {
+        name: "auto_complete_all_quests",
+        description: "Automatically simulate and advance ALL enrolled desktop quests at the same time in the background.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            port: {
+              type: "number",
+              description: "Discord remote debugging port (default: 9222)",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -83,6 +96,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const script = generateSpoofScript(questId);
       const result = await executeInDiscord(script, port);
 
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (name === "auto_complete_all_quests") {
+      const result = await executeInDiscord(AUTO_COMPLETE_ALL_SCRIPT, port);
       return {
         content: [
           {

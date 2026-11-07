@@ -139,3 +139,86 @@ export function generateSpoofScript(questId: string): string {
 })();
 `;
 }
+
+export const AUTO_COMPLETE_ALL_SCRIPT = `
+(() => {
+    delete window.$;
+    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
+    webpackChunkdiscord_app.pop();
+
+    const findModule = (filter) => {
+        for (const i in wpRequire.c) {
+            const m = wpRequire.c[i]?.exports;
+            if (!m) continue;
+            const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
+            for (const t of targets) {
+                try { if (filter(t)) return t; } catch(e) {}
+            }
+        }
+    };
+
+    const runningGameStore = findModule(m => m.getRunningGames);
+    const fluxDispatcher = findModule(m => m.flushWaitQueue);
+
+    let questsStore = null;
+    for (const i in wpRequire.c) {
+        const m = wpRequire.c[i]?.exports;
+        if (!m) continue;
+        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === 'object');
+        for (const t of targets) {
+            try {
+                if (t.quests && t.quests instanceof Map && t.quests.size > 0) {
+                    questsStore = t;
+                    break;
+                }
+            } catch(e) {}
+        }
+        if (questsStore) break;
+    }
+
+    if (!questsStore) return { error: "QuestsStore not found" };
+
+    const rawList = Array.from(questsStore.quests.values());
+    const enrolledDesktopQuests = rawList.filter(q => {
+        const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
+        return q.userStatus?.enrolledAt && !q.userStatus?.completedAt && tc?.tasks?.PLAY_ON_DESKTOP != null;
+    });
+
+    if (enrolledDesktopQuests.length === 0) {
+        return { message: "Tidak ada quest bertipe PLAY_ON_DESKTOP yang sedang aktif/enrolled." };
+    }
+
+    const fakeGames = enrolledDesktopQuests.map((q, idx) => {
+        const appId = q.config?.application?.id || q.config?.applicationId;
+        const appName = q.config?.application?.name || q.config?.messages?.questName || "Game";
+        return {
+            cmdLine: "C:\\\\Program Files\\\\" + appName + "\\\\game.exe",
+            exeName: "game.exe",
+            exePath: "c:/program files/" + appName.toLowerCase() + "/game.exe",
+            hidden: false,
+            isLauncher: false,
+            id: appId,
+            name: appName,
+            pid: 1400 + idx,
+            pidPath: [1400 + idx],
+            processName: "game.exe",
+            start: Date.now(),
+        };
+    });
+
+    const realGames = runningGameStore.getRunningGames();
+    runningGameStore.getRunningGames = () => fakeGames;
+    runningGameStore.getGameForPID = (p) => fakeGames.find(x => x.pid === p);
+    fluxDispatcher.dispatch({type: "RUNNING_GAMES_CHANGE", removed: realGames, added: fakeGames, games: fakeGames});
+
+    return {
+        status: "RUNNING_IN_BACKGROUND",
+        totalSimulated: fakeGames.length,
+        quests: enrolledDesktopQuests.map(q => ({
+            id: q.id,
+            name: q.config?.messages?.questName || q.config?.application?.name,
+            targetSeconds: (q.config?.taskConfig ?? q.config?.taskConfigV2)?.tasks?.PLAY_ON_DESKTOP?.target ?? 900
+        }))
+    };
+})();
+`;
