@@ -1,62 +1,62 @@
 # Discord Quest MCP Server
 
-Server Model Context Protocol (MCP) untuk otomatisasi Discord Desktop Quests melalui Chrome DevTools Protocol (CDP) dengan struktur modular terisolasi.
+Model Context Protocol (MCP) server for automating Discord Desktop quests via Chrome DevTools Protocol (CDP) using a clean, modular architecture.
 
 ---
 
-## Arsitektur
+## Architecture
 
 ```text
 discord-quest-mcp/
 ├── src/
-│   ├── client/          # Lapisan infrastruktur: CDP WebSocket client
+│   ├── client/          # Infrastructure layer: CDP WebSocket client
 │   │   └── cdpClient.ts
-│   ├── config/          # Konfigurasi dan konstanta server
+│   ├── config/          # Server configuration and constants
 │   │   └── constants.ts
-│   ├── scripts/         # Skrip runtime in-memory (ekstraksi Webpack dan spoofing)
+│   ├── scripts/         # In-memory runtime scripts (Webpack extraction and spoofing)
 │   │   ├── bootstrap.ts
 │   │   └── questScripts.ts
-│   ├── tools/           # Lapisan aplikasi: Definisi dan handler tool MCP
+│   ├── tools/           # Application layer: MCP tool definitions and handlers
 │   │   └── questTools.ts
-│   ├── types/           # Model domain dan kontrak data
+│   ├── types/           # Domain models and data contracts
 │   │   └── index.ts
-│   └── index.ts         # Lapisan presentasi: Entrypoint stdio server
-├── build/               # Hasil kompilasi JavaScript
+│   └── index.ts         # Presentation layer: stdio server entrypoint
+├── build/               # Compiled JavaScript artifacts
 ├── tsconfig.json
 └── package.json
 ```
 
 ---
 
-## Daftar Tools
+## Tools
 
-1. `list_discord_quests`: Mengambil seluruh daftar quest aktif, tipe task, target durasi, dan progres saat ini.
-2. `auto_enroll_all_quests`: Menerima (Accept) seluruh quest aktif yang belum diambil dalam satu panggilan.
-3. `fast_forward_video_quests`: Mempercepat progres quest video/trailer langsung ke target durasi dan mengeksekusi klaim reward.
-4. `auto_complete_all_quests`: Mensimulasikan eksekusi seluruh quest game desktop secara simultan di latar belakang.
-5. `spoof_discord_quest`: Menjalankan emulasi proses game untuk satu ID quest tertentu.
+1. `list_discord_quests`: Retrieves all active quests, task types, target duration, and current progress.
+2. `auto_enroll_all_quests`: Enrolls into all available, unaccepted active quests in a single call.
+3. `fast_forward_video_quests`: Instantly fast-forwards all video/stream quests to their target duration and triggers reward claims.
+4. `auto_complete_all_quests`: Simulates running processes for all active desktop game quests simultaneously in the background.
+5. `spoof_discord_quest`: Emulates process execution for a specific quest ID.
 
 ---
 
-## Prasyarat Klien Discord
+## Discord Client Prerequisites
 
-Discord Desktop harus dijalankan dengan port remote debugging aktif:
+Discord Desktop must be running with remote debugging enabled:
 
-1. Aktifkan DevTools di `~/.config/discord/settings.json`:
+1. Enable DevTools in `~/.config/discord/settings.json`:
 ```json
 {
   "DANGEROUS_ENABLE_DEVTOOLS_ONLY_ENABLE_IF_YOU_KNOW_WHAT_YOURE_DOING": true
 }
 ```
 
-2. Jalankan Discord dengan flag debugging:
+2. Start Discord with the remote debugging flag:
 ```bash
 discord --remote-debugging-port=9222
 ```
 
 ---
 
-## Instalasi dan Kompilasi
+## Installation and Build
 
 ```bash
 cd /home/makdumibrohim/Projects/Coba-Coba/discord-quest-mcp
@@ -66,9 +66,9 @@ npm run build
 
 ---
 
-## Konfigurasi MCP Client
+## MCP Client Configuration
 
-Daftarkan server ke konfigurasi client MCP (misal Hermes atau Claude Desktop):
+Register the server in your MCP client configuration (such as Hermes or Claude Desktop):
 
 ```json
 {
