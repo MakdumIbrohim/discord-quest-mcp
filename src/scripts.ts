@@ -194,3 +194,79 @@ export const AUTO_COMPLETE_ALL_SCRIPT = `
     };
 })();
 `;
+
+export const FAST_FORWARD_VIDEOS_SCRIPT = `
+(async () => {
+    delete window.$;
+    let wpRequire = webpackChunkdiscord_app.push([[Symbol()], {}, (r) => r]);
+    webpackChunkdiscord_app.pop();
+
+    let questsStore = null;
+    let api = null;
+    let claimFn = null;
+
+    for (const i in wpRequire.c) {
+        const m = wpRequire.c[i]?.exports;
+        if (!m) continue;
+        const targets = [m.Z, m.ZP, m.default, m.Ay, m.Bo, m.tn, m.A, m].filter(t => t && typeof t === "object");
+        for (const t of targets) {
+            try {
+                if (t.getName && t.getName() === "QuestStore") questsStore = t;
+                if (t.get && t.post && !api) api = t;
+            } catch(e) {}
+        }
+        for (const k in m) {
+            try {
+                if (typeof m[k] === "function" && m[k].toString().includes("QUESTS_CLAIM_REWARD_BEGIN")) {
+                    claimFn = m[k];
+                }
+            } catch(e) {}
+        }
+    }
+
+    if (!questsStore || !api) return { error: "QuestStore or API not found" };
+
+    const rawList = Array.from(questsStore.quests.values());
+    const videoQuests = rawList.filter(q => {
+        const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
+        return tc?.tasks?.WATCH_VIDEO != null && !q.userStatus?.completedAt;
+    });
+
+    if (videoQuests.length === 0) {
+        return { message: "Tidak ada video quest yang belum selesai." };
+    }
+
+    const results = [];
+    for (const q of videoQuests) {
+        const tc = q.config?.taskConfig ?? q.config?.taskConfigV2;
+        const target = tc.tasks.WATCH_VIDEO.target;
+        const name = q.config?.messages?.questName || q.config?.application?.name;
+
+        try {
+            if (!q.userStatus?.enrolledAt) {
+                await api.post({ url: \`/quests/\${q.id}/enroll\`, body: { location: 11 } });
+            }
+
+            await api.post({
+                url: \`/quests/\${q.id}/video-progress\`,
+                body: { timestamp: target }
+            });
+
+            if (claimFn) {
+                try {
+                    await claimFn(q.id, 0, 11);
+                } catch(e) {}
+            }
+
+            results.push({ id: q.id, name, status: "COMPLETED_AND_CLAIMED", targetSeconds: target });
+        } catch(err) {
+            results.push({ id: q.id, name, status: "FAILED", error: String(err) });
+        }
+    }
+
+    return {
+        totalProcessed: results.length,
+        results
+    };
+})();
+`;
